@@ -49,7 +49,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       const provider = new GoogleAuthProvider();
       provider.addScope('https://www.googleapis.com/auth/calendar');
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      
+      // Get the ID token
+      const idToken = await result.user.getIdToken();
+      
+      // Set the session cookie
+      await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ idToken }),
+      });
+      
     } catch (err) {
       const authError = err as FirebaseError;
       let errorMessage = 'Failed to sign in with Google';
