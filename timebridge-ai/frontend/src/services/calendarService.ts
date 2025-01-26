@@ -1,19 +1,20 @@
 import { google, calendar_v3 } from 'googleapis';
 import { CalendarEvent } from '@/types/calendar';
 
+interface CachedEventData {
+  data: calendar_v3.Schema$Event[];
+  timestamp: number;
+}
+
 export class CalendarService {
   private calendar: calendar_v3.Calendar;
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-  private cachedEvents: Map<string, { data: any[], timestamp: number }> = new Map();
+  private cachedEvents: Map<string, CachedEventData> = new Map();
 
   constructor(authClient: calendar_v3.Options['auth']) {
     this.calendar = google.calendar({ 
       version: 'v3', 
-      auth: authClient,
-      scopes: [
-        'https://www.googleapis.com/auth/calendar.readonly',
-        'https://www.googleapis.com/auth/calendar.events'
-      ]
+      auth: authClient
     });
   }
 
@@ -36,13 +37,16 @@ export class CalendarService {
         fields: 'items(id,summary,start,end)', // Only fetch required fields
       });
       
+      // Ensure items is never undefined
+      const events = response.data.items || [];
+      
       // Cache the result
       this.cachedEvents.set(cacheKey, {
-        data: response.data.items,
+        data: events,
         timestamp: Date.now()
       });
 
-      return response.data.items;
+      return events;
     } catch (error) {
       console.error('Error fetching calendar events:', error);
       throw error;

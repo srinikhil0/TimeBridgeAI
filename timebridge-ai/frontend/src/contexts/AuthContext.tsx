@@ -3,13 +3,12 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { 
   GoogleAuthProvider, 
-  signInWithPopup, 
+  signInWithPopup,
   onAuthStateChanged,
-  User,
-  AuthErrorCodes
+  User
 } from 'firebase/auth';
-import { FirebaseError } from 'firebase/app';
 import { auth } from '@/lib/firebase/config';
+import { ConsentDialog } from '@/components/auth/ConsentDialog';
 
 interface AuthContextType {
   user: User | null;
@@ -20,12 +19,13 @@ interface AuthContextType {
   clearError: () => void;
 }
 
-const AuthContext = createContext<AuthContextType>({} as AuthContextType);
+const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showConsent, setShowConsent] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(
@@ -47,11 +47,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       setError(null);
-      const provider = new GoogleAuthProvider();
-      provider.addScope('https://www.googleapis.com/auth/calendar');
-      const result = await signInWithPopup(auth, provider);
       
-      // Get the ID token
+      // Show consent dialog first
+      setShowConsent(true);
+      
+    } catch {
+      const errorMessage = 'Failed to sign in with Google';
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConsentConfirm = async () => {
+    setShowConsent(false);
+    try {
+      const provider = new GoogleAuthProvider();
+      // Add calendar scopes
+      provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+      provider.addScope('https://www.googleapis.com/auth/calendar.events');
+      
+      const result = await signInWithPopup(auth, provider);
       const idToken = await result.user.getIdToken();
       
       // Set the session cookie
@@ -62,60 +78,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
         body: JSON.stringify({ idToken }),
       });
-      
-    } catch (err) {
-      const authError = err as FirebaseError;
-      let errorMessage = 'Failed to sign in with Google';
-      
-      switch (authError.code) {
-        case AuthErrorCodes.POPUP_CLOSED_BY_USER:
-          errorMessage = 'Sign-in cancelled. Please try again.';
-          break;
-        case AuthErrorCodes.POPUP_BLOCKED:
-          errorMessage = 'Pop-up blocked. Please allow pop-ups for this site.';
-          break;
-        case AuthErrorCodes.NETWORK_REQUEST_FAILED:
-          errorMessage = 'Network error. Please check your connection.';
-          break;
-        case AuthErrorCodes.TOO_MANY_ATTEMPTS_TRY_LATER:
-          errorMessage = 'Too many attempts. Please try again later.';
-          break;
-        default:
-          errorMessage = authError.message;
-      }
-      
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('Sign in failed:', error);
+      setError('Failed to sign in after consent');
     }
   };
-
-  const signOut = async () => {
-    try {
-      setLoading(true);
-      await auth.signOut();
-    } catch (err) {
-      const error = err as FirebaseError;
-      setError(`Failed to sign out: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const clearError = () => setError(null);
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      loading, 
-      error, 
-      signInWithGoogle, 
-      signOut,
-      clearError 
-    }}>
-      {children}
-    </AuthContext.Provider>
+    <>
+      <AuthContext.Provider 
+        value={{ 
+          user, 
+          loading, 
+          error, 
+          signInWithGoogle,
+          signOut: async () => await auth.signOut(),
+          clearError: () => setError(null)
+        }}
+      >
+        {children}
+      </AuthContext.Provider>
+      
+      <ConsentDialog
+        isOpen={showConsent}
+        onConfirm={handleConsentConfirm}
+        onCancel={() => setShowConsent(false)}
+      />
+    </>
   );
 }
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
