@@ -78,3 +78,6 @@ firebase-debug.*.log*
 
 # Google Cloud
 google-credentials.json
+
+# Firebase Admin
+FIREBASE_ADMIN_KEY.json

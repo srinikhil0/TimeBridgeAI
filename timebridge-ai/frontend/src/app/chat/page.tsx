@@ -3,23 +3,34 @@ import { UserMenu } from '@/components/chat/UserMenu';
 
 export default function ChatPage() {
   return (
-    <div className="min-h-screen bg-gray-900 overflow-hidden relative">
-      {/* Background gradient circles - now with pointer-events-none */}
-      <div className="fixed top-[-250px] left-[-200px] w-[600px] h-[600px] rounded-full bg-primary/5 blur-[120px] -z-10 pointer-events-none" />
-      <div className="fixed bottom-[-250px] right-[-200px] w-[600px] h-[600px] rounded-full bg-secondary/5 blur-[120px] -z-10 pointer-events-none" />
-      
-      {/* Header */}
-      <header className="border-b border-gray-800 bg-gray-900/50 backdrop-blur-xl sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+    <div className="flex h-screen bg-gray-900">
+      {/* Sidebar */}
+      <div className="w-64 bg-gray-800 border-r border-gray-700 p-4">
+        <div className="flex items-center justify-between mb-8">
           <h1 className="text-xl font-semibold gradient-text">TimeBridgeAI</h1>
-          <UserMenu />
         </div>
-      </header>
-      
+        
+        {/* New Chat Button */}
+        <button className="w-full px-4 py-2 mb-4 text-sm text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
+          New Chat
+        </button>
+
+        {/* Chat History would go here */}
+        <div className="space-y-2">
+          {/* Chat history items */}
+        </div>
+      </div>
+
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4">
-        <ChatWindow />
-      </main>
+      <div className="flex-1 flex flex-col">
+        <header className="h-16 border-b border-gray-800 bg-gray-900/50 backdrop-blur-xl flex items-center justify-between px-4">
+          <div className="text-white">Chat Title</div>
+          <UserMenu />
+        </header>
+        <main className="flex-1 relative">
+          <ChatWindow />
+        </main>
+      </div>
     </div>
   );
 }

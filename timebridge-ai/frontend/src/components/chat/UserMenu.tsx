@@ -2,27 +2,24 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import Image from 'next/image';
+import Link from 'next/link';
 
 export function UserMenu() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center">
       {user?.photoURL && (
-        <Image 
-          src={user.photoURL}
-          alt="Profile"
-          width={32}
-          height={32}
-          className="rounded-full"
-        />
+        <Link href="/profile">
+          <Image 
+            src={user.photoURL}
+            alt="Profile"
+            width={32}
+            height={32}
+            className="rounded-full cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+          />
+        </Link>
       )}
-      <button
-        onClick={signOut}
-        className="px-4 py-2 text-sm bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
-      >
-        Sign Out
-      </button>
     </div>
   );
 }
