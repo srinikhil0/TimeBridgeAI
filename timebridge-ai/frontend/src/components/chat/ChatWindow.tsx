@@ -4,9 +4,15 @@ import { useState, useRef, useEffect } from 'react';
 import { Message } from './Message';
 import { MessageInput } from './MessageInput';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { getFirebaseIdToken } from '@/lib/firebase/auth';
+
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+}
 
 export function ChatWindow() {
-  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -22,41 +28,97 @@ export function ChatWindow() {
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
 
-    setMessages(prev => [...prev, { role: 'user', content }]);
+    const newMessage: Message = { role: 'user', content };
+    const currentMessages = [...messages, newMessage];
+    setMessages(currentMessages);
     setLoading(true);
 
     try {
-      // API call logic here
-      const response = await fetch('/api/chat', {
+      const token = await getFirebaseIdToken();
+      if (!token) {
+        sessionStorage.setItem('pendingMessages', JSON.stringify(currentMessages));
+        window.location.href = '/';
+        return;
+      }
+
+      const response = await fetch('http://127.0.0.1:8000/api/chat/message', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ message: content }),
+        credentials: 'include',
+        body: JSON.stringify({ 
+          message: content,
+          context: { timestamp: new Date().toISOString() }
+        }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to send message');
+        if (response.status === 401) {
+          const newToken = await getFirebaseIdToken(true);
+          if (!newToken) {
+            throw new Error('Authentication failed');
+          }
+          const retryResponse = await fetch('http://127.0.0.1:8000/api/chat/message', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${newToken}`
+            },
+            credentials: 'include',
+            body: JSON.stringify({ 
+              message: content,
+              context: { timestamp: new Date().toISOString() }
+            }),
+          });
+          
+          if (!retryResponse.ok) {
+            throw new Error(`HTTP error! status: ${retryResponse.status}`);
+          }
+          
+          const data = await retryResponse.json();
+          const assistantMessage: Message = {
+            role: 'assistant',
+            content: data.message
+          };
+          setMessages(prev => [...prev, assistantMessage]);
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      
-      if (!data.message) {
-        throw new Error('Invalid response format');
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: data.message
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error: unknown) {
+      console.error('Chat error:', error);
+      if (error instanceof Error && error.message === 'Authentication failed') {
+        sessionStorage.setItem('pendingMessages', JSON.stringify(currentMessages));
+        window.location.href = '/';
+        return;
       }
-
-      setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: 'Sorry, I encountered an error. Please try again.' 
-      }]);
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: 'Sorry, I encountered an error. Please try again.'
+      };
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setLoading(false);
     }
   };
+
+  // Add useEffect to restore messages after redirect
+  useEffect(() => {
+    const pendingMessages = sessionStorage.getItem('pendingMessages');
+    if (pendingMessages) {
+      setMessages(JSON.parse(pendingMessages));
+      sessionStorage.removeItem('pendingMessages');
+    }
+  }, []);
 
   return (
     <div className="relative h-[calc(100vh-4rem)] flex flex-col">
