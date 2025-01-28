@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Dict, Optional, List
 from pydantic import BaseModel
-from services.gemini_service import GeminiService
-from services.google_calendar_service import GoogleCalendarService
-from services.firebase_service import get_current_user
+from services.ai import GeminiService
+from services.calendar import GoogleCalendarService
+from services.firebase import get_current_user
 from firebase_admin import firestore
 import os
 from datetime import datetime
@@ -23,10 +23,11 @@ class ChatResponse(BaseModel):
     suggestions: Optional[List[str]] = None
 
 gemini_service = None
+calendar_service = None
 
-@router.post("/chat/message", response_model=ChatResponse)
+@router.post("/message", response_model=ChatResponse)
 async def chat(message: ChatMessage, user: dict = Depends(get_current_user)):
-    global gemini_service
+    global gemini_service, calendar_service
     
     if gemini_service is None:
         api_key = os.getenv('GEMINI_API_KEY')
@@ -38,6 +39,9 @@ async def chat(message: ChatMessage, user: dict = Depends(get_current_user)):
             )
         gemini_service = GeminiService(api_key=api_key)
     
+    if calendar_service is None and user.get('credentials'):
+        calendar_service = GoogleCalendarService(user.get('credentials'))
+    
     logger.info(f"Chat request from user: {user.get('email', 'unknown')}")
     try:
         # Initialize Firestore client
@@ -46,7 +50,7 @@ async def chat(message: ChatMessage, user: dict = Depends(get_current_user)):
         
         # Get user's calendar preferences (synchronously)
         user_prefs_ref = db.collection('userPreferences').document(user_id)
-        user_prefs = user_prefs_ref.get()  # Removed await
+        user_prefs = user_prefs_ref.get()
         calendar_access = user_prefs.exists and user_prefs.get('calendarAccess', False) if user_prefs else False
         
         # Process message with AI
@@ -62,6 +66,6 @@ async def chat(message: ChatMessage, user: dict = Depends(get_current_user)):
     except Exception as e:
         logger.error(f"Chat endpoint error: {str(e)}", exc_info=True)
         return ChatResponse(
-            message="An error occurred. Please try again later.",
-            suggestions=[]
+            message="I apologize, but I encountered an error. Please try again later.",
+            suggestions=["Try rephrasing your request", "Check if the service is available"]
         )

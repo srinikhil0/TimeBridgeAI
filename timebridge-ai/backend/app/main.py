@@ -1,15 +1,16 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from services.firebase_service import initialize_firebase
+from services.firebase.firebase_service import initialize_firebase
 from dotenv import load_dotenv
 import os
 import logging
-from app.api.chat_controller import router as chat_router  # Updated import path
+from app.api.chat_controller import router as chat_router
+from app.api.calendar_controller import router as calendar_router
 
-# Load environment variables first
-load_dotenv(override=True)
+# Load environment variables
+load_dotenv()
 
-# Then initialize services
+# Initialize Firebase first
 initialize_firebase()
 
 # Create FastAPI app
@@ -40,5 +41,6 @@ async def log_requests(request, call_next):
     logger.debug(f"Response status: {response.status_code}")
     return response
 
-# Include routers
-app.include_router(chat_router, prefix="/api") 
+# Add routers
+app.include_router(chat_router, prefix="/api/chat", tags=["chat"])
+app.include_router(calendar_router, prefix="/api/calendar", tags=["calendar"]) 

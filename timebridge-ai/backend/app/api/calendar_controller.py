@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import List, Optional
 from datetime import datetime, timedelta
 from pydantic import BaseModel
-from services.google_calendar_service import GoogleCalendarService
-from services.firebase_service import get_current_user
+from services.calendar.google_calendar_service import GoogleCalendarService
+from services.firebase.firebase_service import get_current_user
 
 router = APIRouter()
 

@@ -47,3 +47,21 @@ async def get_current_user(request: Request):
     except Exception as e:
         logger.error(f"Authentication error: {str(e)}")
         raise HTTPException(status_code=401, detail="Authentication failed")
+
+async def get_user_details(decoded_token: dict) -> dict:
+    """Get detailed user information from a decoded token"""
+    try:
+        user = auth.get_user(decoded_token['uid'])
+        return {
+            'uid': user.uid,
+            'email': user.email,
+            'display_name': user.display_name,
+            'credentials': decoded_token.get('firebase', {}).get('sign_in_provider'),
+            'calendar_access': decoded_token.get('calendar_access', False)
+        }
+    except Exception as e:
+        logger.error(f"Failed to get user details: {str(e)}")
+        raise HTTPException(
+            status_code=401,
+            detail="Failed to get user details"
+        )
