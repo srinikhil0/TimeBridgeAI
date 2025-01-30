@@ -21,15 +21,18 @@ jobs:
           npm install --legacy-peer-deps
           npm install firebase @firebase/auth @firebase/app
 
-      - name: Build Frontend
-        working-directory: ./timebridge-ai/frontend
-        env:
-          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: "timebridgeai"
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
-          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
-        run: npm run build
+            - name: Build Frontend
+            working-directory: ./timebridge-ai/frontend
+            env:
+              NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+              NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+              NEXT_PUBLIC_FIREBASE_PROJECT_ID: "timebridgeai"
+              NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+              NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+              FIREBASE_PROJECT_ID: "timebridgeai"
+              FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+              FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+            run: npm run build
         
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
@@ -75,5 +78,8 @@ jobs:
           service: timebridge-backend
           region: us-central1
           source: ./timebridge-ai/backend
-          project_id: timebridgeai 
-          
+          project_id: timebridgeai
+          env_vars: |
+            FIREBASE_CREDENTIALS_PATH=/workspace/firebase-credentials.json
+          secrets: |
+            FIREBASE_CREDENTIALS=FIREBASE_SERVICE_ACCOUNT
