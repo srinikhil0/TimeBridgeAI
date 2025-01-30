@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TimeBridge AI - Calendar OAuth Test</title>
+</head>
+<body>
+    <h1>TimeBridge AI Calendar Setup</h1>
+    <script>
+        // Replace with your actual client ID from Google Cloud Console
+        const clientId = '649727079281-e6kg7p63jjtam8fk2h2ukjt2a3bjc57v.apps.googleusercontent.com';
+        const redirectUri = 'http://127.0.0.1:8000/api/auth/callback';
+        const scope = 'https://www.googleapis.com/auth/calendar';
+        
+        function initiateOAuth() {
+            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+            window.location.href = authUrl;
+        }
+    </script>
+    
+    <button onclick="initiateOAuth()">Connect Google Calendar</button>
+    
+    <p>This will authorize TimeBridge AI to:</p>
+    <ul>
+        <li>View and manage your calendar</li>
+        <li>Create and modify events</li>
+    </ul>
+</body>
+</html>

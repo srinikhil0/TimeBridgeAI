@@ -90,11 +90,29 @@ class GeminiService:
         user_message: str,
         context: Optional[Dict] = None
     ) -> Dict:
-        # Create a prompt that helps Gemini understand calendar context
-        prompt = f"""
+        logger.info(f"Processing calendar request: {user_message}")
+        logger.debug(f"Context: {context}")
+
+        try:
+            prompt = self._create_prompt(user_message, context)
+            logger.debug(f"Generated prompt: {prompt}")
+
+            response = await self.model.generate_content(prompt)
+            parsed_response = json.loads(response.text)
+            
+            logger.info(f"AI response generated successfully: {parsed_response['intent']}")
+            logger.debug(f"Full AI response: {parsed_response}")
+            
+            return parsed_response
+        except Exception as e:
+            logger.error(f"Failed to process calendar request: {str(e)}")
+            raise
+
+    def _create_prompt(self, user_message: str, context: Optional[Dict]) -> str:
+        logger.debug("Creating prompt with context")
+        return f"""
         You are TimeBridgeAI, an intelligent calendar assistant. 
         User request: {user_message}
-        
         Previous context: {json.dumps(context) if context else 'None'}
         
         Analyze the request and provide a response in the following JSON format:
@@ -107,9 +125,6 @@ class GeminiService:
             "suggestions": ["follow-up suggestions"]
         }}
         """
-        
-        response = await self.model.generate_content(prompt)
-        return json.loads(response.text)
 
     async def generate_study_schedule(
         self,

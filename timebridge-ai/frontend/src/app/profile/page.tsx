@@ -17,8 +17,14 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const fetchPreferences = async () => {
+      if (!user) return;
+      
       try {
+        const idToken = await user.getIdToken(true);
         const response = await fetch('/api/user/preferences', {
+          headers: {
+            'Authorization': `Bearer ${idToken}`
+          },
           credentials: 'include'
         });
         if (!response.ok) {
@@ -46,30 +52,34 @@ export default function ProfilePage() {
   }, [user, loading, router]);
 
   const handleCalendarConsent = async (consent: boolean) => {
-    try {
-      const response = await fetch('/api/user/preferences', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          calendarAccess: consent,
-        }),
-      });
+    if (consent) {
+      initiateGoogleAuth();
+    } else {
+      try {
+        const response = await fetch('/api/user/preferences', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            calendarAccess: false,
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to update preferences');
+        if (!response.ok) {
+          throw new Error('Failed to update preferences');
+        }
+
+        const data = await response.json();
+        setPreferences(prev => ({
+          ...prev,
+          calendarAccess: false,
+          lastUpdated: data.lastUpdated ? new Date(data.lastUpdated) : undefined
+        }));
+      } catch (error) {
+        console.error('Failed to update preferences:', error);
       }
-
-      const data = await response.json();
-      setPreferences(prev => ({
-        ...prev,
-        calendarAccess: data.calendarAccess,
-        lastUpdated: data.lastUpdated ? new Date(data.lastUpdated) : undefined
-      }));
-    } catch (error) {
-      console.error('Failed to update preferences:', error);
     }
   };
 
@@ -79,6 +89,34 @@ export default function ProfilePage() {
       router.push('/');
     } catch (error) {
       console.error('Failed to sign out:', error);
+    }
+  };
+
+  const initiateGoogleAuth = async () => {
+    if (!user) return;
+
+    try {
+      const idToken = await user.getIdToken(true);
+      
+      // First ensure user document exists by calling verify endpoint
+      await fetch('http://127.0.0.1:8000/api/auth/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ id_token: idToken })
+      });
+
+      // Redirect to Google OAuth
+      const clientId = '649727079281-e6kg7p63jjtam8fk2h2ukjt2a3bjc57v.apps.googleusercontent.com';
+      const redirectUri = `${window.location.origin}/auth/callback`;
+      const scope = 'https://www.googleapis.com/auth/calendar';
+      
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+      window.location.href = authUrl;
+    } catch (error) {
+      console.error('Failed to initiate OAuth:', error);
     }
   };
 

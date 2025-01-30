@@ -98,6 +98,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const result = await signInWithPopup(auth, provider);
       const idToken = await result.user.getIdToken();
       
+      // Store the ID token
+      localStorage.setItem('idToken', idToken);
+      
       // Set the session cookie with credentials
       const response = await fetch('/api/auth/session', {
         method: 'POST',

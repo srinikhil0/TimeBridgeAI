@@ -60,3 +60,14 @@ async def schedule_meeting(
         return {"status": "success", "available_slots": available_slots}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/test-access")
+async def test_calendar_access(user = Depends(get_current_user)):
+    try:
+        calendar_service = GoogleCalendarService(user.credentials)
+        result = await calendar_service.test_calendar_access()
+        if result['status'] == 'error':
+            raise HTTPException(status_code=400, detail=result['message'])
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

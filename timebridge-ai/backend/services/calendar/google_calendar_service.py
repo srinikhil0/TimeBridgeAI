@@ -4,28 +4,55 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from models.calendar_models import CalendarEvent, TimeSlot
 import google_auth_oauthlib.flow
+import logging
+import os
+
+logger = logging.getLogger(__name__)
 
 class GoogleCalendarService:
     def __init__(self, credentials):
+        self.credentials = credentials
         try:
-            flow = google_auth_oauthlib.flow.Flow.from_client_config(
-                {
-                    "web": {
-                        "client_id": credentials['client_id'],
-                        "client_secret": credentials['client_secret'],
-                        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                        "token_uri": "https://oauth2.googleapis.com/token",
-                    }
-                },
-                scopes=credentials['scopes']
-            )
-            
-            creds = flow.credentials
-            creds.token = credentials['token']
-            
-            self.service = build('calendar', 'v3', credentials=creds)
+            self.service = build('calendar', 'v3', credentials=credentials)
         except Exception as e:
             raise Exception(f"Failed to initialize calendar service: {str(e)}")
+
+    def get_credentials_dict(self) -> Dict:
+        """Convert credentials to a dictionary for storage"""
+        return {
+            'token': self.credentials.token,
+            'refresh_token': self.credentials.refresh_token,
+            'token_uri': self.credentials.token_uri,
+            'client_id': self.credentials.client_id,
+            'client_secret': self.credentials.client_secret,
+            'scopes': self.credentials.scopes
+        }
+
+    @classmethod
+    def from_auth_code(cls, auth_code: str) -> 'GoogleCalendarService':
+        """Create a GoogleCalendarService instance from an OAuth authorization code."""
+        try:
+            backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+            client_secrets_file = os.path.join(backend_dir, 'client_secrets.json')
+            
+            logger.info(f"Looking for client_secrets.json at: {client_secrets_file}")
+            
+            if not os.path.exists(client_secrets_file):
+                raise FileNotFoundError(f"client_secrets.json not found at {client_secrets_file}")
+            
+            flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
+                client_secrets_file,
+                scopes=['https://www.googleapis.com/auth/calendar'],
+                redirect_uri='http://localhost:3000/auth/callback'
+            )
+            
+            flow.fetch_token(code=auth_code)
+            credentials = flow.credentials
+            
+            return cls(credentials)
+        except Exception as e:
+            logger.error(f"Failed to create calendar service from auth code: {str(e)}")
+            raise
 
     async def list_events(
         self,
@@ -193,3 +220,16 @@ class GoogleCalendarService:
             
         except Exception as e:
             raise Exception(f"Failed to find meeting slots: {str(e)}")
+
+    async def create_event(self, event_details: Dict) -> Dict:
+        """Create a new event in Google Calendar"""
+        try:
+            event = self.service.events().insert(
+                calendarId='primary',
+                body=event_details
+            ).execute()
+            logger.info(f"Event created: {event.get('htmlLink')}")
+            return event
+        except Exception as e:
+            logger.error(f"Failed to create event: {str(e)}")
+            raise Exception(f"Failed to create event: {str(e)}")

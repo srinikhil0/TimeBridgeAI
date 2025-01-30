@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TimeBridge AI - Calendar Setup Success</title>
+</head>
+<body>
+    <h1>Calendar Authorization Successful!</h1>
+    <script>
+        // Get the auth code from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const authCode = urlParams.get('code');
+        
+        async function setupCalendar() {
+            try {
+                console.log('Setting up calendar with auth code:', authCode);
+                const response = await fetch('/api/auth/setup-calendar', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        auth_code: authCode
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('Setup response:', data);
+                
+                if (data.status === 'success') {
+                    document.getElementById('status').textContent = 'Calendar setup completed successfully!';
+                } else {
+                    throw new Error(data.message || 'Setup failed');
+                }
+            } catch (error) {
+                console.error('Setup error:', error);
+                document.getElementById('status').textContent = 'Error: ' + error.message;
+            }
+        }
+        
+        // Automatically start setup when page loads
+        setupCalendar();
+    </script>
+    
+    <p id="status">Setting up calendar access...</p>
+    <pre id="debug"></pre>
+</body>
+</html>
