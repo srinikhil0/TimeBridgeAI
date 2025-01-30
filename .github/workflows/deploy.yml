@@ -31,9 +31,8 @@ jobs:
           NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
           FIREBASE_PROJECT_ID: "timebridgeai"
           FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
-          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          FIREBASE_PRIVATE_KEY: '${{ secrets.FIREBASE_PRIVATE_KEY }}'
         run: |
-          echo "FIREBASE_PRIVATE_KEY=$(echo $FIREBASE_PRIVATE_KEY | sed 's/\\n/\n/g')" >> $GITHUB_ENV
           npm run build
         
       - name: Deploy to Firebase Hosting
@@ -84,4 +83,4 @@ jobs:
           source: ./timebridge-ai/backend
           project_id: timebridgeai
           secrets: |
-            FIREBASE_CREDENTIALS=projects/timebridgeai/secrets/FIREBASE_SERVICE_ACCOUNT/versions/latest
+            FIREBASE_CREDENTIALS=FIREBASE_SERVICE_ACCOUNT:latest
