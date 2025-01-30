@@ -31,8 +31,14 @@ jobs:
           NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
           FIREBASE_PROJECT_ID: "timebridgeai"
           FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
-          FIREBASE_PRIVATE_KEY: '${{ secrets.FIREBASE_PRIVATE_KEY }}'
         run: |
+          # Create a temporary file to store the processed private key
+          echo '${{ secrets.FIREBASE_PRIVATE_KEY }}' > private_key.txt
+          # Set the environment variable with the processed key
+          echo "FIREBASE_PRIVATE_KEY=$(cat private_key.txt)" >> $GITHUB_ENV
+          # Remove the temporary file
+          rm private_key.txt
+          # Run the build
           npm run build
         
       - name: Deploy to Firebase Hosting
@@ -75,6 +81,12 @@ jobs:
           project_id: timebridgeai
           install_components: 'beta'
          
+      - name: Set Cloud Run Service Account
+        run: |
+          gcloud run services update timebridge-backend \
+            --region=us-central1 \
+            --service-account=github-action-915922807@timebridgeai.iam.gserviceaccount.com
+
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v1
         with:
