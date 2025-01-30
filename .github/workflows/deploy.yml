@@ -61,9 +61,13 @@ jobs:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
           token_format: 'access_token'
           create_credentials_file: true
+          service_account: 'github-action-915922807@timebridgeai.iam.gserviceaccount.com'
           
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: timebridgeai
+          install_components: 'beta'
          
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v1
@@ -72,3 +76,4 @@ jobs:
           region: us-central1
           source: ./timebridge-ai/backend
           project_id: timebridgeai 
+          
