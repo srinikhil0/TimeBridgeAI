@@ -19,6 +19,19 @@ jobs:
         working-directory: ./timebridge-ai/frontend
         run: |
           npm install --legacy-peer-deps
+          npm install @lib/firebase
+          
+      - name: Create Firebase Config
+        working-directory: ./timebridge-ai/frontend
+        run: |
+          echo "export const firebaseConfig = {
+            apiKey: '${{ secrets.FIREBASE_API_KEY }}',
+            authDomain: '${{ secrets.FIREBASE_AUTH_DOMAIN }}',
+            projectId: 'timebridgeai',
+            storageBucket: 'timebridgeai.appspot.com',
+            messagingSenderId: '${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}',
+            appId: '${{ secrets.FIREBASE_APP_ID }}'
+          };" > src/lib/firebase/config.ts
           
       - name: Build Frontend
         working-directory: ./timebridge-ai/frontend
@@ -56,10 +69,16 @@ jobs:
         uses: google-github-actions/auth@v1
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
+          token_format: 'access_token'
+          
+      - name: Configure Docker
+        run: |
+          gcloud auth configure-docker us-central1-docker.pkg.dev
           
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v1
         with:
           service: timebridge-backend
           region: us-central1
-          source: ./timebridge-ai/backend 
+          source: ./timebridge-ai/backend
+          project_id: timebridgeai 
