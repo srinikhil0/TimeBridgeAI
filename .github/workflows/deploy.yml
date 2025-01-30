@@ -25,15 +25,11 @@ jobs:
         working-directory: ./timebridge-ai/frontend
         run: |
           mkdir -p src/lib/firebase
-          cat > src/lib/firebase/auth.ts << 'EOL'
-          import { getAuth } from 'firebase/auth';
-          import app from './config';
-          export const auth = getAuth(app);
-          EOL
-          
           cat > src/lib/firebase/config.ts << 'EOL'
           import { initializeApp } from 'firebase/app';
-          
+          import { getAuth } from 'firebase/auth';
+          import { getFirestore } from 'firebase/firestore';
+
           const firebaseConfig = {
             apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
             authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -42,15 +38,19 @@ jobs:
             messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
             appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
           };
-          
+
           const app = initializeApp(firebaseConfig);
+          export const auth = getAuth(app);
+          export const db = getFirestore(app);
           export default app;
           EOL
-          
+
+          cat > src/lib/firebase/auth.ts << 'EOL'
+          export { auth } from './config';
+          EOL
+
           cat > src/lib/firebase/admin.ts << 'EOL'
-          import { getAuth } from 'firebase/auth';
-          import app from './config';
-          export const admin = getAuth(app);
+          export { auth as admin } from './config';
           EOL
           
       - name: Build Frontend
@@ -59,6 +59,8 @@ jobs:
           NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: "timebridgeai"
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
         run: npm run build
         
       - name: Deploy to Firebase Hosting
@@ -91,12 +93,17 @@ jobs:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
           token_format: 'access_token'
           create_credentials_file: true
-          service_account: 'github-action-915922807@timebridgeai.iam.gserviceaccount.com'
           
-      - name: Configure Docker
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        
+      - name: Create Artifact Registry Repository
         run: |
-          gcloud auth configure-docker us-central1-docker.pkg.dev
-          
+          gcloud artifacts repositories create timebridge-backend \
+            --repository-format=docker \
+            --location=us-central1 \
+            --project=timebridgeai
+            
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v1
         with:
