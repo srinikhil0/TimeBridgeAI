@@ -17,7 +17,9 @@ jobs:
           
       - name: Install Frontend Dependencies
         working-directory: ./timebridge-ai/frontend
-        run: npm install
+        run: |
+          npm install
+          npm install firebase @firebase/auth @firebase/app @firebase/config @firebase/admin
           
       - name: Build Frontend
         working-directory: ./timebridge-ai/frontend
@@ -45,6 +47,7 @@ jobs:
         working-directory: ./timebridge-ai/backend
         run: |
           python -m pip install --upgrade pip
+          pip install numpy==1.24.3
           pip install -r requirements.txt
           
       - name: Authenticate to Google Cloud
