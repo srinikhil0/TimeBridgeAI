@@ -18,7 +18,7 @@ jobs:
       - name: Install Frontend Dependencies
         working-directory: ./timebridge-ai/frontend
         run: |
-          npm install --legacy-peer-deps
+          npm ci
           npm install firebase @firebase/auth @firebase/app
 
             - name: Build Frontend
@@ -82,4 +82,4 @@ jobs:
           env_vars: |
             FIREBASE_CREDENTIALS_PATH=/workspace/firebase-credentials.json
           secrets: |
-            FIREBASE_CREDENTIALS=FIREBASE_SERVICE_ACCOUNT
+            FIREBASE_CREDENTIALS=FIREBASE_SERVICE_ACCOUNT:latest
