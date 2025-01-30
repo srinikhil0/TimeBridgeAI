@@ -16,7 +16,6 @@ COPY . .
 # Create directory for Firebase credentials
 RUN mkdir -p /workspace
 
-ENV PORT=8080
 ENV FIREBASE_CREDENTIALS_PATH=/workspace/firebase-credentials.json
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"] 

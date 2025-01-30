@@ -29,9 +29,7 @@ jobs:
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: "timebridgeai"
           NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
           NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
-          FIREBASE_PROJECT_ID: "timebridgeai"
-          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
-          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          FIREBASE_PRIVATE_KEY: '${{ secrets.FIREBASE_PRIVATE_KEY }}'
         run: npm run build
         
       - name: Deploy to Firebase Hosting
@@ -81,6 +79,5 @@ jobs:
           project_id: timebridgeai
           env_vars: |
             FIREBASE_CREDENTIALS_PATH=/workspace/firebase-credentials.json
-            PORT=8080
           secrets: |
             FIREBASE_CREDENTIALS=FIREBASE_SERVICE_ACCOUNT:latest
