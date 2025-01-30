@@ -25,21 +25,33 @@ jobs:
         working-directory: ./timebridge-ai/frontend
         run: |
           mkdir -p src/lib/firebase
-          echo "import { initializeApp } from 'firebase/app';
+          cat > src/lib/firebase/auth.ts << 'EOL'
           import { getAuth } from 'firebase/auth';
+          import app from './config';
+          export const auth = getAuth(app);
+          EOL
           
-          export const firebaseConfig = {
-            apiKey: '${{ secrets.FIREBASE_API_KEY }}',
-            authDomain: '${{ secrets.FIREBASE_AUTH_DOMAIN }}',
+          cat > src/lib/firebase/config.ts << 'EOL'
+          import { initializeApp } from 'firebase/app';
+          
+          const firebaseConfig = {
+            apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+            authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
             projectId: 'timebridgeai',
             storageBucket: 'timebridgeai.appspot.com',
-            messagingSenderId: '${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}',
-            appId: '${{ secrets.FIREBASE_APP_ID }}'
+            messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+            appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
           };
           
           const app = initializeApp(firebaseConfig);
-          export const auth = getAuth(app);
-          export default app;" > src/lib/firebase/config.ts
+          export default app;
+          EOL
+          
+          cat > src/lib/firebase/admin.ts << 'EOL'
+          import { getAuth } from 'firebase/auth';
+          import app from './config';
+          export const admin = getAuth(app);
+          EOL
           
       - name: Build Frontend
         working-directory: ./timebridge-ai/frontend
@@ -79,6 +91,7 @@ jobs:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
           token_format: 'access_token'
           create_credentials_file: true
+          service_account: 'github-action-915922807@timebridgeai.iam.gserviceaccount.com'
           
       - name: Configure Docker
         run: |
