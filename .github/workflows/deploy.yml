@@ -20,39 +20,7 @@ jobs:
         run: |
           npm install --legacy-peer-deps
           npm install firebase @firebase/auth @firebase/app
-          
-      - name: Create Firebase Config
-        working-directory: ./timebridge-ai/frontend
-        run: |
-          mkdir -p src/lib/firebase
-          cat > src/lib/firebase/config.ts << 'EOL'
-          import { initializeApp } from 'firebase/app';
-          import { getAuth } from 'firebase/auth';
-          import { getFirestore } from 'firebase/firestore';
 
-          const firebaseConfig = {
-            apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-            authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-            projectId: 'timebridgeai',
-            storageBucket: 'timebridgeai.appspot.com',
-            messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-            appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
-          };
-
-          const app = initializeApp(firebaseConfig);
-          export const auth = getAuth(app);
-          export const db = getFirestore(app);
-          export default app;
-          EOL
-
-          cat > src/lib/firebase/auth.ts << 'EOL'
-          export { auth } from './config';
-          EOL
-
-          cat > src/lib/firebase/admin.ts << 'EOL'
-          export { auth as admin } from './config';
-          EOL
-          
       - name: Build Frontend
         working-directory: ./timebridge-ai/frontend
         env:
@@ -96,14 +64,7 @@ jobs:
           
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
-        
-      - name: Create Artifact Registry Repository
-        run: |
-          gcloud artifacts repositories create timebridge-backend \
-            --repository-format=docker \
-            --location=us-central1 \
-            --project=timebridgeai
-            
+         
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v1
         with:
