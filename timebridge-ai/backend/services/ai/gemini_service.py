@@ -4,12 +4,52 @@ from typing import Dict, List, Optional
 import json
 import logging
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import HTTPException
+import pytz
+from services.ai.prompt_templates import PromptTemplates
 
 logger = logging.getLogger(__name__)
 
 class GeminiService:
+    # Comprehensive timezone mapping
+    TIMEZONE_MAPPING = {
+        # North America
+        'Eastern Standard Time': 'America/New_York',
+        'EST': 'America/New_York',
+        'EDT': 'America/New_York',
+        'Central Standard Time': 'America/Chicago',
+        'CST': 'America/Chicago',
+        'CDT': 'America/Chicago',
+        'Mountain Standard Time': 'America/Denver',
+        'MST': 'America/Denver',
+        'MDT': 'America/Denver',
+        'Pacific Standard Time': 'America/Los_Angeles',
+        'PST': 'America/Los_Angeles',
+        'PDT': 'America/Los_Angeles',
+        'Alaska Standard Time': 'America/Anchorage',
+        'Hawaii-Aleutian Standard Time': 'Pacific/Honolulu',
+        
+        # Europe
+        'GMT Standard Time': 'Europe/London',
+        'British Summer Time': 'Europe/London',
+        'Central European Time': 'Europe/Paris',
+        'Central European Summer Time': 'Europe/Paris',
+        'Eastern European Time': 'Europe/Helsinki',
+        
+        # Asia
+        'India Standard Time': 'Asia/Kolkata',
+        'IST': 'Asia/Kolkata',
+        'China Standard Time': 'Asia/Shanghai',
+        'Japan Standard Time': 'Asia/Tokyo',
+        'Singapore Standard Time': 'Asia/Singapore',
+        
+        # Australia
+        'Australian Eastern Standard Time': 'Australia/Sydney',
+        'Australian Central Standard Time': 'Australia/Adelaide',
+        'Australian Western Standard Time': 'Australia/Perth'
+    }
+
     def __init__(self, api_key: str):
         if not api_key:
             logger.error("GEMINI_API_KEY not found")
@@ -25,55 +65,41 @@ class GeminiService:
             {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
         ]
         
-    async def process_message(self, message: str) -> Dict:
+    async def process_message(self, message: str, context: Optional[Dict] = None) -> Dict:
         try:
-            logger.debug(f"Processing message: {message[:50]}...")
+            # Get user's local timezone
+            local_tz = datetime.now().astimezone().tzinfo
             
-            prompt = """
-            You are TimeBridgeAI, an intelligent calendar assistant. Your primary focus is on calendar management and scheduling.
-            If users ask about non-calendar topics, politely redirect them to calendar-related assistance.
+            # Get timezone from mapping
+            tz_name = str(local_tz)
+            pytz_timezone = self.TIMEZONE_MAPPING.get(tz_name, 'UTC')
             
-            Keep responses concise and focused on calendar functionality. Your response must be a valid JSON object.
+            # Add timezone to context for AI
+            context = context or {}
+            context['timezone'] = pytz_timezone
             
-            Example response format:
-            {
-                "message": "Your calendar-focused response here",
-                "calendar_action": {
-                    "type": "reminder|meeting|check",
-                    "details": {}
-                },
-                "suggestions": ["Schedule a meeting", "Set a reminder", "Check availability"]
-            }
+            # Use calendar analysis prompt
+            prompt = PromptTemplates.get_calendar_analysis_prompt(message, context)
+            logger.debug(f"Generated prompt: {prompt}")
             
-            User message: """ + message
-            
-            loop = asyncio.get_running_loop()
-            response = await loop.run_in_executor(
-                None,
-                lambda: self.model.generate_content(prompt, safety_settings=self.safety_settings)
-            )
-            
-            # Clean and parse response
+            response = self.model.generate_content(prompt)
             response_text = response.text.strip()
             logger.debug(f"Raw response: {response_text}")
             
-            try:
-                # Try direct JSON parsing first
-                result = json.loads(response_text)
-            except json.JSONDecodeError:
-                # If that fails, try to extract JSON from the text
-                start_idx = response_text.find('{')
-                end_idx = response_text.rfind('}') + 1
-                if start_idx == -1 or end_idx == 0:
-                    raise ValueError("No JSON found in response")
-                
-                json_str = response_text[start_idx:end_idx]
-                result = json.loads(json_str)
+            result = json.loads(response_text)
             
-            # Ensure required fields
+            calendar_action = result.get('calendar_action', {})
+            if calendar_action and calendar_action.get('type') == 'reminder':
+                details = calendar_action.get('details', {})
+                details['timezone'] = pytz_timezone
+                
+                # Ensure we have all required fields
+                if not all(k in details for k in ['title', 'time', 'date']):
+                    raise ValueError("Missing required reminder details")
+                
             return {
                 "message": result.get("message", "I'm here to help with your calendar needs."),
-                "calendar_action": result.get("calendar_action"),
+                "calendar_action": calendar_action,
                 "suggestions": result.get("suggestions", ["Schedule a meeting", "Check calendar"])
             }
             

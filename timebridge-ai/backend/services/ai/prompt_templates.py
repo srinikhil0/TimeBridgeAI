@@ -1,24 +1,32 @@
 from typing import Dict, Optional
+from datetime import datetime
 
 class PromptTemplates:
     @staticmethod
     def get_calendar_analysis_prompt(user_message: str, context: Optional[Dict] = None) -> str:
+        current_time = datetime.now().astimezone()
+        user_tz = context.get('timezone', current_time.tzname())
+        
         return f"""
         You are TimeBridgeAI, an intelligent calendar assistant. 
+        Current time: {current_time.strftime('%Y-%m-%d %H:%M %Z')}
+        User's timezone: {user_tz}
         User request: {user_message}
         
-        Previous context: {context if context else 'None'}
+        IMPORTANT: ALL times mentioned by the user are in their local timezone ({user_tz}). 
+        DO NOT convert times to UTC or any other timezone.
         
-        Analyze the request and provide a response in the following JSON format:
+        For ANY reminder or calendar request, ALWAYS return response in this EXACT format:
         {{
-            "intent": "reminder|meeting|schedule|recurring",
-            "action_required": true|false,
-            "params": {{
-                // Parameters specific to the intent
-            }},
-            "response": "Your natural response here",
-            "required_info": ["any additional info needed"],
-            "suggestions": ["follow-up suggestions"]
+            "message": "Your confirmation message here",
+            "calendar_action": {{
+                "type": "reminder",
+                "details": {{
+                    "title": "REQUIRED - Clear title",
+                    "time": "REQUIRED - Local time exactly as user specified (HH:MM)",
+                    "date": "REQUIRED - Local date in YYYY-MM-DD format"
+                }}
+            }}
         }}
         """
 

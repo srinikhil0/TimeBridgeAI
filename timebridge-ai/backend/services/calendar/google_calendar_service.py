@@ -1,7 +1,7 @@
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
 from models.calendar_models import CalendarEvent, TimeSlot
 import google_auth_oauthlib.flow
 import logging
@@ -10,11 +10,23 @@ import os
 logger = logging.getLogger(__name__)
 
 class GoogleCalendarService:
-    def __init__(self, credentials):
-        self.credentials = credentials
+    def __init__(self, credentials: Union[Dict, Credentials]):
         try:
+            # If credentials is a dict, convert it to Credentials object
+            if isinstance(credentials, dict):
+                credentials = Credentials(
+                    token=credentials['token'],
+                    refresh_token=credentials['refresh_token'],
+                    token_uri=credentials['token_uri'],
+                    client_id=credentials['client_id'],
+                    client_secret=credentials['client_secret'],
+                    scopes=credentials['scopes']
+                )
+            
+            self.credentials = credentials
             self.service = build('calendar', 'v3', credentials=credentials)
         except Exception as e:
+            logger.error(f"Failed to initialize calendar service: {str(e)}")
             raise Exception(f"Failed to initialize calendar service: {str(e)}")
 
     def get_credentials_dict(self) -> Dict:
@@ -233,3 +245,31 @@ class GoogleCalendarService:
         except Exception as e:
             logger.error(f"Failed to create event: {str(e)}")
             raise Exception(f"Failed to create event: {str(e)}")
+
+    async def verify_calendar_access(self) -> Dict:
+        """Verify Google Calendar access and permissions"""
+        try:
+            calendar_list = self.service.calendarList().list().execute()
+            primary_calendar = next(
+                (cal for cal in calendar_list['items'] if cal.get('primary')), None
+            )
+            
+            if not primary_calendar:
+                raise Exception("Could not access primary calendar")
+            
+            return {
+                'status': 'success',
+                'message': 'Calendar access verified successfully',
+                'details': {
+                    'calendar_id': primary_calendar['id'],
+                    'calendar_name': primary_calendar.get('summary', 'Primary Calendar')
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Calendar access verification failed: {str(e)}")
+            return {
+                'status': 'error',
+                'message': f"Calendar access verification failed: {str(e)}",
+                'details': None
+            }

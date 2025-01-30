@@ -62,10 +62,10 @@ async def schedule_meeting(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/test-access")
-async def test_calendar_access(user = Depends(get_current_user)):
+async def verify_calendar_access(user = Depends(get_current_user)):
     try:
         calendar_service = GoogleCalendarService(user.credentials)
-        result = await calendar_service.test_calendar_access()
+        result = await calendar_service.verify_calendar_access()
         if result['status'] == 'error':
             raise HTTPException(status_code=400, detail=result['message'])
         return result

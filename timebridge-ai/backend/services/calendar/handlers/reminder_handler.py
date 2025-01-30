@@ -5,6 +5,7 @@ import logging
 from google.api_core import retry
 from googleapiclient.errors import HttpError
 import asyncio
+import pytz
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,15 @@ class ReminderHandler(BaseCalendarHandler):
     async def verify_event_creation(self, event_id: str) -> bool:
         """Verify that the event was actually created in Google Calendar"""
         try:
-            event = await self.calendar_service.get_event(event_id)
+            # Wrap the synchronous API call in an executor
+            loop = asyncio.get_running_loop()
+            event = await loop.run_in_executor(
+                None,
+                lambda: self.calendar_service.service.events().get(
+                    calendarId='primary',
+                    eventId=event_id
+                ).execute()
+            )
             return bool(event and event.get('id') == event_id)
         except Exception as e:
             logger.error(f"Event verification failed: {str(e)}")
@@ -55,11 +64,20 @@ class ReminderHandler(BaseCalendarHandler):
             if not await self.validate_params(params):
                 raise ValueError("Invalid parameters provided")
 
-            # Combine date and time
-            reminder_datetime = datetime.combine(
-                params['date'] if isinstance(params['date'], datetime) else datetime.strptime(params['date'], '%Y-%m-%d'),
-                datetime.strptime(params['time'], '%H:%M').time()
-            )
+            # Get timezone or default to user's local timezone
+            local_tz = datetime.now().astimezone().tzinfo
+            tz = pytz.timezone(params.get('timezone', str(local_tz)))
+            
+            # Combine date and time with timezone awareness
+            date_obj = (params['date'] if isinstance(params['date'], datetime) 
+                       else datetime.strptime(params['date'], '%Y-%m-%d'))
+            time_obj = datetime.strptime(params['time'], '%H:%M').time()
+            
+            # Create local datetime first
+            local_dt = datetime.combine(date_obj, time_obj)
+            
+            # Localize to user's timezone
+            reminder_datetime = tz.localize(local_dt)
             
             # Create event with reminder
             event = {
@@ -67,18 +85,18 @@ class ReminderHandler(BaseCalendarHandler):
                 'description': params.get('description', 'Reminder created by TimeBridgeAI'),
                 'start': {
                     'dateTime': reminder_datetime.isoformat(),
-                    'timeZone': params.get('timezone', 'UTC')
+                    'timeZone': str(tz)
                 },
                 'end': {
-                    'dateTime': (reminder_datetime + timedelta(minutes=30)).isoformat(),
-                    'timeZone': params.get('timezone', 'UTC')
+                    'dateTime': (reminder_datetime + timedelta(minutes=1)).isoformat(),
+                    'timeZone': str(tz)
                 },
                 'reminders': {
                     'useDefault': False,
                     'overrides': [
                         {
-                            'method': params.get('method', 'popup'),
-                            'minutes': params.get('minutes', self.DEFAULT_REMINDER_MINUTES[params.get('method', 'popup')])
+                            'method': 'popup',
+                            'minutes': params.get('minutes', self.DEFAULT_REMINDER_MINUTES['popup'])
                         }
                     ]
                 }
