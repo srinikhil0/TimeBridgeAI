@@ -5,45 +5,6 @@ on:
     branches: [ main ]
 
 jobs:
-  deploy-frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-          
-      - name: Install Frontend Dependencies
-        working-directory: ./timebridge-ai/frontend
-        run: |
-          npm ci
-          npm install firebase @firebase/auth @firebase/app
-
-      - name: Build Frontend
-        working-directory: ./timebridge-ai/frontend
-        env:
-          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: "timebridgeai"
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
-          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
-          FIREBASE_PROJECT_ID: "timebridgeai"
-          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
-          # Set the private key directly as an environment variable
-          FIREBASE_PRIVATE_KEY: '${{ secrets.FIREBASE_PRIVATE_KEY }}'
-        run: npm run build
-        
-      - name: Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
-          channelId: live
-          projectId: timebridgeai
-          entryPoint: ./timebridge-ai
-
   deploy-backend:
     runs-on: ubuntu-latest
     env:
@@ -91,18 +52,51 @@ jobs:
           region: us-central1
           source: ./timebridge-ai/backend
           project_id: timebridgeai
-          env_vars: |
-            PORT=8080
           secrets: |
             FIREBASE_CREDENTIALS=FIREBASE_SERVICE_ACCOUNT:latest
-          flags: |
-            --timeout=300s
-            --cpu=1
-            --memory=512Mi
-            --port=8080
 
       # Add a step to create requirements.txt for deployment
       - name: Update Requirements for Deployment
         working-directory: ./timebridge-ai/backend
         run: |
           pip freeze > requirements.txt
+
+  deploy-frontend:
+    needs: deploy-backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      - name: Install Frontend Dependencies
+        working-directory: ./timebridge-ai/frontend
+        run: |
+          npm ci  
+          npm install firebase @firebase/auth @firebase/app
+
+      - name: Build Frontend
+        working-directory: ./timebridge-ai/frontend
+        env:
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: "timebridgeai"
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          FIREBASE_PROJECT_ID: "timebridgeai"
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          # Set the private key directly as an environment variable
+          FIREBASE_PRIVATE_KEY: '${{ secrets.FIREBASE_PRIVATE_KEY }}'
+        run: npm run build
+        
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          channelId: live
+          projectId: timebridgeai
+          entryPoint: ./timebridge-ai
