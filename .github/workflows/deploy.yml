@@ -31,15 +31,9 @@ jobs:
           NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
           FIREBASE_PROJECT_ID: "timebridgeai"
           FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
-        run: |
-          # Create a temporary file to store the processed private key
-          echo '${{ secrets.FIREBASE_PRIVATE_KEY }}' > private_key.txt
-          # Set the environment variable with the processed key
-          echo "FIREBASE_PRIVATE_KEY=$(cat private_key.txt)" >> $GITHUB_ENV
-          # Remove the temporary file
-          rm private_key.txt
-          # Run the build
-          npm run build
+          # Set the private key directly as an environment variable
+          FIREBASE_PRIVATE_KEY: '${{ secrets.FIREBASE_PRIVATE_KEY }}'
+        run: npm run build
         
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
@@ -66,7 +60,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          
+          # Add the missing Gemini dependency
+          pip install google-generativeai
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v1
         with:
@@ -94,5 +90,14 @@ jobs:
           region: us-central1
           source: ./timebridge-ai/backend
           project_id: timebridgeai
+          # Add environment variables for the container
+          env_vars: |
+            PORT=8080
           secrets: |
             FIREBASE_CREDENTIALS=FIREBASE_SERVICE_ACCOUNT:latest
+
+      # Add a step to create requirements.txt for deployment
+      - name: Update Requirements for Deployment
+        working-directory: ./timebridge-ai/backend
+        run: |
+          pip freeze > requirements.txt

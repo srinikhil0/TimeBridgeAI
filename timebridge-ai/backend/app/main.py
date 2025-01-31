@@ -7,6 +7,7 @@ import logging
 from app.api.chat_controller import router as chat_router
 from app.api.calendar_controller import router as calendar_router
 from app.api.auth_controller import router as auth_router
+import uvicorn
 
 # Load environment variables
 load_dotenv()
@@ -49,4 +50,8 @@ async def log_requests(request, call_next):
 # Add routers
 app.include_router(chat_router, prefix="/api/chat", tags=["chat"])
 app.include_router(calendar_router, prefix="/api/calendar", tags=["calendar"])
-app.include_router(auth_router, prefix="/api/auth", tags=["auth"]) 
+app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port) 
