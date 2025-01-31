@@ -42,6 +42,7 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
           channelId: live
           projectId: timebridgeai
+          entryPoint: ./timebridge-ai
 
   deploy-backend:
     runs-on: ubuntu-latest
@@ -90,11 +91,15 @@ jobs:
           region: us-central1
           source: ./timebridge-ai/backend
           project_id: timebridgeai
-          # Add environment variables for the container
           env_vars: |
             PORT=8080
           secrets: |
             FIREBASE_CREDENTIALS=FIREBASE_SERVICE_ACCOUNT:latest
+          flags: |
+            --timeout=300s
+            --cpu=1
+            --memory=512Mi
+            --port=8080
 
       # Add a step to create requirements.txt for deployment
       - name: Update Requirements for Deployment
