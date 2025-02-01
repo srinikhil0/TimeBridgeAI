@@ -87,12 +87,6 @@ jobs:
           FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
           FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
         run: npm run build
-
-      - name: Copy Firebase config and build output
-        run: |
-          cp ../../firebase.json ./firebase.json
-          mkdir -p frontend/.next
-          cp -r .next/* frontend/.next/
         
       - name: Deploy to Firebase
         uses: FirebaseExtended/action-hosting-deploy@v0
