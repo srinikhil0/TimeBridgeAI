@@ -1,4 +1,4 @@
-name: Deploy to Firebase
+name: Deploy TimeBridge
 
 on:
   push:
@@ -7,8 +7,9 @@ on:
 jobs:
   deploy-backend:
     runs-on: ubuntu-latest
-    env:
-      PROJECT_ID: timebridgeai
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v3
       
@@ -17,90 +18,81 @@ jobs:
         with:
           python-version: '3.9'
           
-      - name: Install Backend Dependencies
-        working-directory: ./timebridge-ai/backend
+      - name: Install Dependencies
+        working-directory: ./backend
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install google-generativeai
-
-      - name: Authenticate to Google Cloud
+          
+      - name: Google Auth
+        id: auth
         uses: google-github-actions/auth@v1
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
-          token_format: 'access_token'
-          create_credentials_file: true
-          service_account: 'github-action-915922807@timebridgeai.iam.gserviceaccount.com'
           
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
         with:
-          project_id: timebridgeai
-          install_components: 'beta'
-
-      # Create the Cloud Run service if it doesn't exist
-      - name: Create Cloud Run Service
+          project_id: ${{ secrets.PROJECT_ID }}
+          
+      - name: Authorize Docker push
+        run: gcloud auth configure-docker
+        
+      - name: Build and Push Container
+        working-directory: ./backend
         run: |
-          if ! gcloud run services describe timebridge-backend --region=us-central1 2>/dev/null; then
-            gcloud run services create timebridge-backend \
-              --region=us-central1 \
-              --platform=managed \
-              --service-account=github-action-915922807@timebridgeai.iam.gserviceaccount.com
-          fi
-
-      # Deploy to Cloud Run with proper configuration
+          docker build -t gcr.io/${{ secrets.PROJECT_ID }}/backend .
+          docker push gcr.io/${{ secrets.PROJECT_ID }}/backend
+          
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v1
         with:
           service: timebridge-backend
           region: us-central1
-          source: timebridge-ai/backend
-          project_id: timebridgeai
-          secrets: |
-            FIREBASE_CREDENTIALS=projects/649727079281/secrets/FIREBASE_SERVICE_ACCOUNT/versions/latest
-
-      # Add a step to create requirements.txt for deployment
-      - name: Update Requirements for Deployment
-        working-directory: ./timebridge-ai/backend
-        run: |
-          pip freeze > requirements.txt
+          image: gcr.io/${{ secrets.PROJECT_ID }}/backend
+          env_vars: |
+            FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
+            FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}
+            FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}
 
   deploy-frontend:
     needs: deploy-backend
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    
     steps:
       - uses: actions/checkout@v3
       
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: './frontend/package-lock.json'
           
-      - name: Install Frontend Dependencies
-        working-directory: ./timebridge-ai/frontend
-        run: |
-          npm ci  
-          npm install firebase @firebase/auth @firebase/app
-
-      - name: Build Frontend
-        working-directory: ./timebridge-ai/frontend
+      - name: Install Dependencies
+        run: npm ci
+        
+      - name: Build
         env:
-          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: "timebridgeai"
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
-          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
-          FIREBASE_PROJECT_ID: "timebridgeai"
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
           FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
-          # Set the private key directly as an environment variable
-          FIREBASE_PRIVATE_KEY: '${{ secrets.FIREBASE_PRIVATE_KEY }}'
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
         run: npm run build
         
-      - name: Deploy to Firebase Hosting
+      - name: Deploy to Firebase
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
           channelId: live
-          projectId: timebridgeai
-          entryPoint: ./timebridge-ai
+          projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
+          entryPoint: ./frontend

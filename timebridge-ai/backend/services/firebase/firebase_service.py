@@ -9,10 +9,27 @@ security = HTTPBearer()
 
 logger = logging.getLogger(__name__)
 
-# Initialize Firebase with credentials
 def initialize_firebase():
-    cred = credentials.Certificate(os.getenv('FIREBASE_CREDENTIALS_PATH'))
-    initialize_app(cred)
+    try:
+        project_id = os.getenv('FIREBASE_PROJECT_ID')
+        client_email = os.getenv('FIREBASE_CLIENT_EMAIL')
+        private_key = os.getenv('FIREBASE_PRIVATE_KEY')
+
+        if not all([project_id, client_email, private_key]):
+            raise ValueError("Missing required Firebase credentials")
+
+        cred = credentials.Certificate({
+            "type": "service_account",
+            "project_id": project_id,
+            "client_email": client_email,
+            "private_key": private_key.replace('\\n', '\n'),
+            "token_uri": "https://oauth2.googleapis.com/token",
+        })
+        initialize_app(cred)
+        logger.info("Firebase initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize Firebase: {str(e)}")
+        raise
 
 async def get_current_user(request: Request):
     try:

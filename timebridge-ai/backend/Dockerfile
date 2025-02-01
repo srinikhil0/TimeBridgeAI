@@ -2,25 +2,24 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install build dependencies
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy and install requirements first (for better caching)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application
 COPY . .
 
-# Create directory for Firebase credentials
-# Cloud Run will mount secrets in /var/run/secrets by default
-RUN mkdir -p /var/run/secrets
+# Set environment variables
+ENV PORT=8080
+ENV PYTHONUNBUFFERED=1
+# Set a default path for Firebase credentials
+ENV FIREBASE_CREDENTIALS_PATH=/app/firebase-credentials.json
 
-ENV FIREBASE_CREDENTIALS_PATH=/var/run/secrets/FIREBASE_CREDENTIALS
-
-# Add a startup script to verify environment
-COPY startup.sh .
-RUN chmod +x startup.sh
-
-CMD ["./startup.sh"] 
+# Command to run the application
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
