@@ -14,9 +14,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create directory for Firebase credentials
-RUN mkdir -p /workspace
+# Cloud Run will mount secrets in /var/run/secrets by default
+RUN mkdir -p /var/run/secrets
 
-ENV FIREBASE_CREDENTIALS_PATH=/workspace/firebase-credentials.json
+ENV FIREBASE_CREDENTIALS_PATH=/var/run/secrets/FIREBASE_CREDENTIALS
 
 # Add a startup script to verify environment
 COPY startup.sh .

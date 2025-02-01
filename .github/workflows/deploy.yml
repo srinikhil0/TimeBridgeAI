@@ -57,7 +57,7 @@ jobs:
           source: timebridge-ai/backend
           project_id: timebridgeai
           secrets: |
-            FIREBASE_CREDENTIALS=FIREBASE_SERVICE_ACCOUNT:latest
+            FIREBASE_CREDENTIALS=projects/649727079281/secrets/FIREBASE_SERVICE_ACCOUNT/versions/latest
 
       # Add a step to create requirements.txt for deployment
       - name: Update Requirements for Deployment
