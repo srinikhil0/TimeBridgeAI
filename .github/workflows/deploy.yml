@@ -22,7 +22,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          # Add the missing Gemini dependency
           pip install google-generativeai
 
       - name: Authenticate to Google Cloud
@@ -38,13 +37,23 @@ jobs:
         with:
           project_id: timebridgeai
           install_components: 'beta'
-         
-      - name: Set Cloud Run Service Account
-        run: |
-          gcloud run services update timebridge-backend \
-            --region=us-central1 \
-            --service-account=github-action-915922807@timebridgeai.iam.gserviceaccount.com
 
+      # Create the Cloud Run service if it doesn't exist
+      - name: Create Cloud Run Service
+        run: |
+          if ! gcloud run services describe timebridge-backend --region=us-central1 2>/dev/null; then
+            gcloud run services create timebridge-backend \
+              --region=us-central1 \
+              --platform=managed \
+              --service-account=github-action-915922807@timebridgeai.iam.gserviceaccount.com
+          fi
+
+      # Write Firebase credentials to a file
+      - name: Setup Firebase Credentials
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/firebase-credentials.json
+
+      # Deploy to Cloud Run with proper configuration
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v1
         with:
@@ -52,8 +61,17 @@ jobs:
           region: us-central1
           source: ./timebridge-ai/backend
           project_id: timebridgeai
+          env_vars: |
+            PORT=8080
           secrets: |
             FIREBASE_CREDENTIALS=FIREBASE_SERVICE_ACCOUNT:latest
+          flags: |
+            --memory=512Mi
+            --cpu=1
+            --timeout=300s
+            --allow-unauthenticated
+            --min-instances=0
+            --max-instances=3
 
       # Add a step to create requirements.txt for deployment
       - name: Update Requirements for Deployment
