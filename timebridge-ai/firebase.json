@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "timebridge-ai/frontend/.next",
+    "public": "frontend/.next",
     "ignore": [
       "firebase.json",
       "**/.*",
