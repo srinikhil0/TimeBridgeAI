@@ -59,7 +59,7 @@ jobs:
         with:
           service: timebridge-backend
           region: us-central1
-          source: ./timebridge-ai/backend
+          source: timebridge-ai/backend
           project_id: timebridgeai
           env_vars: |
             PORT=8080
