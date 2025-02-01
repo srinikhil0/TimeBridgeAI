@@ -48,11 +48,6 @@ jobs:
               --service-account=github-action-915922807@timebridgeai.iam.gserviceaccount.com
           fi
 
-      # Write Firebase credentials to a file
-      - name: Setup Firebase Credentials
-        run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/firebase-credentials.json
-
       # Deploy to Cloud Run with proper configuration
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v1
