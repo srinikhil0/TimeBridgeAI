@@ -87,7 +87,7 @@ jobs:
           FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
           FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
         run: npm run build
-        
+
       - name: Deploy to Firebase
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
@@ -95,4 +95,4 @@ jobs:
           firebaseServiceAccount: '${{ secrets.GCP_SA_KEY }}'
           channelId: live
           projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
-          entryPoint: ./timebridge-ai
+          entryPoint: ./timebridge-ai/frontend
