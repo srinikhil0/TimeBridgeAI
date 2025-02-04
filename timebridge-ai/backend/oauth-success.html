@@ -13,7 +13,10 @@
         async function setupCalendar() {
             try {
                 console.log('Setting up calendar with auth code:', authCode);
-                const response = await fetch('/api/auth/setup-calendar', {
+                const apiUrl = window.location.origin.includes('localhost') 
+                    ? 'http://127.0.0.1:8000' 
+                    : window.location.origin;
+                const response = await fetch(`${apiUrl}/api/auth/setup-calendar`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

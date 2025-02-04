@@ -7,6 +7,7 @@ import { UserPreferences } from '@/types/user';
 import Image from 'next/image';
 import Link from 'next/link';
 import { UserMenu } from '@/components/chat/UserMenu';
+import { API_URL, API_ROUTES } from '@/config';
 
 export default function ProfilePage() {
   const { user, loading, signOut } = useAuth();
@@ -14,6 +15,7 @@ export default function ProfilePage() {
   const [preferences, setPreferences] = useState<UserPreferences>({
     calendarAccess: false
   });
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     const fetchPreferences = async () => {
@@ -21,15 +23,18 @@ export default function ProfilePage() {
       
       try {
         const idToken = await user.getIdToken(true);
-        const response = await fetch('/api/user/preferences', {
+        const response = await fetch(`${API_URL}${API_ROUTES.preferences}`, {
           headers: {
-            'Authorization': `Bearer ${idToken}`
-          },
-          credentials: 'include'
+            'Authorization': `Bearer ${idToken}`,
+            'Content-Type': 'application/json'
+          }
         });
+        
         if (!response.ok) {
-          throw new Error('Failed to fetch preferences');
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Failed to fetch preferences');
         }
+        
         const data = await response.json();
         setPreferences({
           calendarAccess: data.calendarAccess,
@@ -52,14 +57,18 @@ export default function ProfilePage() {
   }, [user, loading, router]);
 
   const handleCalendarConsent = async (consent: boolean) => {
-    if (consent) {
-      initiateGoogleAuth();
-    } else {
-      try {
-        const response = await fetch('/api/user/preferences', {
+    if (!user) return;
+    setIsUpdating(true);
+    
+    try {
+      if (consent) {
+        await initiateGoogleAuth();
+      } else {
+        const idToken = await user.getIdToken(true);
+        const response = await fetch(`${API_URL}${API_ROUTES.preferences}`, {
           method: 'POST',
-          credentials: 'include',
           headers: {
+            'Authorization': `Bearer ${idToken}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -77,9 +86,11 @@ export default function ProfilePage() {
           calendarAccess: false,
           lastUpdated: data.lastUpdated ? new Date(data.lastUpdated) : undefined
         }));
-      } catch (error) {
-        console.error('Failed to update preferences:', error);
       }
+    } catch (error) {
+      console.error('Failed to update preferences:', error);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -99,7 +110,7 @@ export default function ProfilePage() {
       const idToken = await user.getIdToken(true);
       
       // First ensure user document exists by calling verify endpoint
-      await fetch('http://127.0.0.1:8000/api/auth/verify', {
+      await fetch(`${API_URL}${API_ROUTES.auth}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -109,7 +120,7 @@ export default function ProfilePage() {
       });
 
       // Redirect to Google OAuth
-      const clientId = '649727079281-e6kg7p63jjtam8fk2h2ukjt2a3bjc57v.apps.googleusercontent.com';
+      const clientId = process.env.GOOGLE_CLIENT_ID;
       const redirectUri = `${window.location.origin}/auth/callback`;
       const scope = 'https://www.googleapis.com/auth/calendar';
       
@@ -197,13 +208,14 @@ export default function ProfilePage() {
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => handleCalendarConsent(true)}
+                  disabled={isUpdating}
                   className={`px-4 py-2 rounded-lg transition-colors ${
                     preferences.calendarAccess
                       ? 'bg-primary text-white'
                       : 'bg-gray-700 text-gray-300 hover:bg-primary/90'
-                  }`}
+                  } ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  Allow Google Calendar Access
+                  {isUpdating ? 'Updating...' : 'Allow Google Calendar Access'}
                 </button>
                 <button
                   onClick={() => handleCalendarConsent(false)}
