@@ -109,7 +109,7 @@ export class AIEventHandler {
     return !!(intent.parameters.dateTime?.start && intent.parameters.title);
   }
 
-  private async createEventFromIntent(intent: CalendarIntent): Promise<string> {
+  public async createEventFromIntent(intent: CalendarIntent): Promise<string> {
     if (!intent.parameters.dateTime || !intent.parameters.title) {
       throw new Error('Missing required event details');
     }
@@ -179,7 +179,7 @@ You can view it here: ${result.htmlLink}`;
     return this.createEventWithDetails();
   }
 
-  private isNewEventRequest(message: string): boolean {
+  public isNewEventRequest(message: string): boolean {
     return message.toLowerCase().includes('create') || 
            message.toLowerCase().includes('schedule') || 
            message.toLowerCase().includes('new event');
