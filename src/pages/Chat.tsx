@@ -15,6 +15,7 @@ import { auth } from '../config/firebase';
 import AddIcon from '@mui/icons-material/Add';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { chatService, type ChatMessage, type ChatSession } from '../services/chatService';
+import EventCreationDialog from '../components/EventCreationDialog';
 
 const MessageBubble = ({ message }: { message: ChatMessage }) => {
   const isUser = message.role === 'user';
@@ -24,7 +25,7 @@ const MessageBubble = ({ message }: { message: ChatMessage }) => {
       sx={{
         display: 'flex',
         justifyContent: isUser ? 'flex-end' : 'flex-start',
-        mb: 2,
+        mb: 1.5,
         gap: 1,
       }}
     >
@@ -34,14 +35,10 @@ const MessageBubble = ({ message }: { message: ChatMessage }) => {
         </Avatar>
       )}
       
-      <Paper
-        elevation={1}
+      <Box
         sx={{
           maxWidth: '70%',
-          p: 2,
-          bgcolor: isUser ? 'primary.main' : 'background.paper',
-          color: isUser ? 'primary.contrastText' : 'text.primary',
-          borderRadius: 2,
+          px: 1,
           '& pre': { margin: 0 },
           '& code': {
             fontFamily: 'monospace',
@@ -65,10 +62,10 @@ const MessageBubble = ({ message }: { message: ChatMessage }) => {
         >
           {message.content}
         </ReactMarkdown>
-        <Typography variant="caption" sx={{ display: 'block', mt: 1, opacity: 0.7 }}>
+        <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.7 }}>
           {new Date(message.timestamp).toLocaleTimeString()}
         </Typography>
-      </Paper>
+      </Box>
 
       {isUser && (
         <Avatar sx={{ bgcolor: 'secondary.main' }}>
@@ -87,6 +84,10 @@ const Chat: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
+  const [calendarAnchorEl, setCalendarAnchorEl] = useState<null | HTMLElement>(null);
+  const [chatMenuAnchorEl, setChatMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   // Load chat sessions when component mounts
@@ -149,11 +150,29 @@ const Chat: React.FC = () => {
     }
   };
 
-  const handleCalendarClick = () => {
+  const handleCalendarClick = (event: React.MouseEvent<HTMLElement>) => {
+    setCalendarAnchorEl(event.currentTarget);
+  };
+
+  const handleCalendarMenuClose = () => {
+    setCalendarAnchorEl(null);
+  };
+
+  const handleOpenCalendar = () => {
     const user = auth.currentUser;
     if (user?.email) {
       window.open(`https://calendar.google.com/calendar/embed?authuser=${encodeURIComponent(user.email)}`, '_blank');
     }
+    handleCalendarMenuClose();
+  };
+
+  const handleCreateEvent = () => {
+    setIsEventDialogOpen(true);
+    handleCalendarMenuClose();
+  };
+
+  const handleEventCreated = () => {
+    console.log('Event created successfully');
   };
 
   const handleSendMessage = async (e?: React.FormEvent) => {
@@ -221,12 +240,40 @@ const Chat: React.FC = () => {
     }
   };
 
+  const handleChatMenuOpen = (event: React.MouseEvent<HTMLElement>, chatId: string) => {
+    event.stopPropagation();
+    setChatMenuAnchorEl(event.currentTarget);
+    setSelectedChatId(chatId);
+  };
+
+  const handleChatMenuClose = () => {
+    setChatMenuAnchorEl(null);
+    setSelectedChatId(null);
+  };
+
+  const handleDeleteChat = async () => {
+    if (!selectedChatId) return;
+    
+    try {
+      await chatService.deleteChat(selectedChatId);
+      setChatSessions(prev => prev.filter(chat => chat.id !== selectedChatId));
+      if (currentChatId === selectedChatId) {
+        setCurrentChatId(null);
+        setMessages([]);
+      }
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+    } finally {
+      handleChatMenuClose();
+    }
+  };
+
   return (
     <Box sx={{ height: '100vh', display: 'flex' }}>
       {/* Sidebar */}
       <Box
         sx={{
-          width: isSidebarOpen ? 280 : 0,
+          width: isSidebarOpen ? { xs: '100%', sm: 280 } : 0,
           borderRight: 1,
           borderColor: 'divider',
           bgcolor: 'background.default',
@@ -234,29 +281,39 @@ const Chat: React.FC = () => {
           transition: 'width 0.2s',
           display: 'flex',
           flexDirection: 'column',
-          position: 'relative',
+          position: { xs: 'fixed', sm: 'relative' },
+          height: '100vh',
+          zIndex: 1200,
         }}
       >
         {/* Logo Section */}
         <Box 
           sx={{ 
-            p: 2, 
+            p: { xs: 1, sm: 2 }, 
             borderBottom: 1, 
             borderColor: 'divider',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'space-between'
           }}
         >
-          <img 
-            src="/public/Timebridge_white.png" 
-            alt="TimeBridge AI" 
-            style={{ height: 40, width: 'auto' }}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <img 
+              src="/Timebridge_white.png" 
+              alt="TimeBridge AI" 
+              style={{ height: 32, width: 'auto' }}
+            />
+          </Box>
+          <IconButton 
+            sx={{ display: { xs: 'block', sm: 'none' } }}
+            onClick={() => setIsSidebarOpen(false)}
+          >
+            <MenuIcon />
+          </IconButton>
         </Box>
 
         {/* New Chat Button */}
-        <Box sx={{ p: 2 }}>
+        <Box sx={{ p: { xs: 1, sm: 2 } }}>
           <Button
             variant="contained"
             fullWidth
@@ -264,7 +321,7 @@ const Chat: React.FC = () => {
             onClick={handleNewChat}
             sx={{
               borderRadius: 2,
-              py: 1,
+              py: 0.75,
               bgcolor: 'primary.main',
               color: 'primary.contrastText',
               '&:hover': {
@@ -281,8 +338,10 @@ const Chat: React.FC = () => {
           sx={{ 
             flex: 1, 
             overflow: 'auto',
+            px: { xs: 1, sm: 2 },
+            py: 1,
             '&::-webkit-scrollbar': {
-              width: '8px',
+              width: '4px',
             },
             '&::-webkit-scrollbar-track': {
               bgcolor: 'background.paper',
@@ -293,62 +352,54 @@ const Chat: React.FC = () => {
             },
           }}
         >
-          {chatSessions.map((session) => (
-            <Box
-              key={session.id}
+          {chatSessions.map((chat) => (
+            <Paper
+              key={chat.id}
+              elevation={1}
               sx={{
-                p: 2,
+                py: 0.75,
+                px: 1.5,
+                mb: 0.5,
                 cursor: 'pointer',
-                '&:hover': { 
-                  bgcolor: 'action.hover',
-                  borderRadius: 1,
-                  mx: 1,
-                },
                 display: 'flex',
-                flexDirection: 'column',
-                gap: 0.5,
-                mb: 1,
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                bgcolor: currentChatId === chat.id ? 'action.selected' : 'background.paper',
+                '&:hover': {
+                  bgcolor: 'action.hover',
+                },
               }}
-              onClick={() => handleChatSelect(session.id)}
+              onClick={() => handleChatSelect(chat.id)}
             >
-              <Typography 
-                variant="subtitle2" 
-                sx={{ 
-                  fontWeight: 500,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="subtitle2" noWrap>
+                  {chat.title}
+                </Typography>
+              </Box>
+              <IconButton
+                size="small"
+                onClick={(e) => handleChatMenuOpen(e, chat.id)}
+                sx={{ ml: 0.5 }}
               >
-                {session.title}
-              </Typography>
-              <Typography 
-                variant="body2" 
-                color="text.secondary" 
-                sx={{
-                  fontSize: '0.75rem',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {session.preview}
-              </Typography>
-              <Typography 
-                variant="caption" 
-                color="text.disabled"
-                sx={{ fontSize: '0.7rem' }}
-              >
-                {new Date(session.timestamp).toLocaleDateString()}
-              </Typography>
-            </Box>
+                <MoreVertIcon fontSize="small" />
+              </IconButton>
+            </Paper>
           ))}
         </Box>
+
+        {/* Chat Menu */}
+        <Menu
+          anchorEl={chatMenuAnchorEl}
+          open={Boolean(chatMenuAnchorEl)}
+          onClose={handleChatMenuClose}
+        >
+          <MenuItem onClick={handleDeleteChat}>Delete</MenuItem>
+        </Menu>
 
         {/* Settings Button */}
         <Box 
           sx={{ 
-            p: 2, 
+            p: { xs: 1, sm: 2 }, 
             borderTop: 1, 
             borderColor: 'divider',
             display: 'flex',
@@ -367,11 +418,16 @@ const Chat: React.FC = () => {
       </Box>
 
       {/* Main Chat Area */}
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ 
+        flex: 1, 
+        display: 'flex', 
+        flexDirection: 'column',
+        width: isSidebarOpen ? { xs: 0, sm: 'auto' } : 'auto',
+      }}>
         {/* Header */}
         <Box
           sx={{
-            p: 2,
+            p: { xs: 1, sm: 2 },
             borderBottom: 1,
             borderColor: 'divider',
             display: 'flex',
@@ -380,16 +436,34 @@ const Chat: React.FC = () => {
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconButton onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+            <IconButton 
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            >
               <MenuIcon />
             </IconButton>
-            <Typography variant="h6">TimeBridge AI</Typography>
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                fontSize: { xs: '1rem', sm: '1.25rem' },
+                display: { xs: isSidebarOpen ? 'none' : 'block', sm: 'block' }
+              }}
+            >
+              TimeBridge AI
+            </Typography>
           </Box>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <IconButton onClick={handleCalendarClick}>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <IconButton size="small" onClick={handleCalendarClick}>
               <EventIcon />
             </IconButton>
-            <IconButton onClick={handleMenuOpen}>
+            <Menu
+              anchorEl={calendarAnchorEl}
+              open={Boolean(calendarAnchorEl)}
+              onClose={handleCalendarMenuClose}
+            >
+              <MenuItem onClick={handleOpenCalendar}>Open Calendar</MenuItem>
+              <MenuItem onClick={handleCreateEvent}>Create Event</MenuItem>
+            </Menu>
+            <IconButton size="small" onClick={handleMenuOpen}>
               <MoreVertIcon />
             </IconButton>
             <Menu
@@ -455,6 +529,12 @@ const Chat: React.FC = () => {
           disabled={isLoading}
         />
       </Box>
+
+      <EventCreationDialog
+        open={isEventDialogOpen}
+        onClose={() => setIsEventDialogOpen(false)}
+        onEventCreated={handleEventCreated}
+      />
     </Box>
   );
 };

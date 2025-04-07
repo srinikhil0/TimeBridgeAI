@@ -1,4 +1,7 @@
 import CalendarCommands, { CalendarCommand } from './calendarCommands';
+import { aiEventHandler } from './calendar/aiEventHandler';
+import { taskHandler } from './calendar/taskHandler';
+import { getTimeInfo, TimeInfo } from './timeUtils';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -7,20 +10,47 @@ interface ChatMessage {
 
 interface AIServiceConfig {
   apiKey: string;
-  model: 'gemini' | 'gpt-3.5-turbo' | 'gpt-4';
 }
 
-class AIService {
+export class AIService {
   private apiKey: string;
-  private model: string;
+  private timeInfo: TimeInfo = getTimeInfo();
 
   constructor(config: AIServiceConfig) {
     this.apiKey = config.apiKey;
-    this.model = config.model;
+    this.updateTimeInfo();
+  }
+
+  private updateTimeInfo(): void {
+    this.timeInfo = getTimeInfo();
+  }
+
+  private isTaskRequest(message: string): boolean {
+    const taskKeywords = [
+      'create task',
+      'add task',
+      'set task',
+      'make task',
+      'new task',
+    ];
+    return taskKeywords.some(keyword => 
+      message.toLowerCase().includes(keyword.toLowerCase())
+    );
   }
 
   async sendMessage(message: string, context?: ChatMessage[]): Promise<string> {
+    this.updateTimeInfo();
     try {
+      // Check if the message is about creating a task
+      if (this.isTaskRequest(message)) {
+        return await taskHandler.handleTaskCreation(message);
+      }
+
+      // Check if the message is about creating a calendar event
+      if (this.isCalendarRequest(message)) {
+        return this.handleCalendarRequest(message);
+      }
+
       // Check if this is a calendar command
       if (CalendarCommands.isCalendarCommand(message)) {
         const command = CalendarCommands.parseCommand(message);
@@ -29,51 +59,54 @@ class AIService {
         }
       }
 
-      // Otherwise, use the AI model
-      if (this.model.startsWith('gpt')) {
-        return await this.sendOpenAIMessage(message, context);
-      } else {
-        return await this.sendGeminiMessage(message, context);
-      }
+      // Use Gemini AI for response
+      return await this.sendGeminiMessage(message, context);
     } catch (error) {
-      console.error('Error in AI response:', error);
+      console.error('Error in AI service:', error);
       throw error;
     }
-  }
-
-  private async sendOpenAIMessage(message: string, context?: ChatMessage[]): Promise<string> {
-    const url = 'https://api.openai.com/v1/chat/completions';
-    const messages = [
-      ...(context || []),
-      { role: 'user', content: message }
-    ];
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`
-      },
-      body: JSON.stringify({
-        model: this.model,
-        messages: messages,
-        temperature: 0.7
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.choices[0].message.content;
   }
 
   private async sendGeminiMessage(message: string, context?: ChatMessage[]): Promise<string> {
     const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
     
+    // Add system prompt for Gemini
+    const systemPrompt = {
+      role: 'model',
+      parts: [{
+        text: `You are TimeBridge AI, an advanced AI assistant with special calendar management capabilities. 
+        You can help users with general questions and tasks, but you specialize in:
+        1. Creating and managing calendar events
+        2. Creating and managing tasks
+        3. Scheduling meetings and appointments
+        4. Checking availability
+        5. Managing calendar conflicts
+
+        For tasks, you can:
+        - Create new tasks with title, date, time, and description
+        - Help users organize their to-do lists
+        - Set reminders for important tasks
+
+        Current time context:
+        - Timezone: ${this.timeInfo.timezone}
+        - Current Time: ${this.timeInfo.currentTime}
+        - Current Date: ${this.timeInfo.currentDate}
+        - UTC Offset: ${this.timeInfo.offset}
+
+        Always use this timezone information when discussing times and dates with users.
+        Always mention your calendar and task management capabilities when users ask about your abilities.
+        
+        For task creation, guide users to provide:
+        1. Task title (required)
+        2. Due date (recommended)
+        3. Time (optional)
+        4. Description (optional)`
+      }]
+    };
+    
     // Convert chat context to Gemini format with correct roles
     const contents = [
+      systemPrompt,
       ...(context || []).map(msg => ({
         role: msg.role === 'user' ? 'user' : 'model',
         parts: [{ text: msg.content }]
@@ -125,10 +158,27 @@ class AIService {
         return "I understand you want to do something with your calendar. Could you please provide more details?";
     }
   }
+
+  private isCalendarRequest(message: string): boolean {
+    const calendarKeywords = [
+      'create event',
+      'schedule',
+      'appointment',
+      'meeting',
+      'add to calendar',
+      'book time',
+    ];
+    return calendarKeywords.some(keyword => 
+      message.toLowerCase().includes(keyword.toLowerCase())
+    );
+  }
+
+  private async handleCalendarRequest(message: string): Promise<string> {
+    return aiEventHandler.handleEventCreation(message);
+  }
 }
 
 // Create and export the service with environment variables
 export const aiService = new AIService({
-  apiKey: import.meta.env.VITE_AI_API_KEY,
-  model: import.meta.env.VITE_AI_MODEL || 'gemini'
+  apiKey: import.meta.env.VITE_AI_API_KEY
 }); 
